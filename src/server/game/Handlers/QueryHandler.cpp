@@ -95,10 +95,22 @@ void WorldSession::HandleCreatureQuery(WorldPackets::Query::QueryCreature& packe
         for (uint32 i = 0; i < MAX_KILL_CREDIT; ++i)
             stats.ProxyCreatureID[i] = creatureInfo->KillCredit[i];
 
-        stats.CreatureDisplayID[0] = creatureInfo->Modelid1;
-        stats.CreatureDisplayID[1] = creatureInfo->Modelid2;
-        stats.CreatureDisplayID[2] = creatureInfo->Modelid3;
-        stats.CreatureDisplayID[3] = creatureInfo->Modelid4;
+        // TEMPORARY, PR #22567
+        auto addModel = [&](uint32 modelId)
+        {
+            if (modelId)
+            {
+                stats.CreatureDisplayProbabilitySum += 1.0f;
+                stats.CreatureDisplay.emplace_back();
+                WorldPackets::Query::CreatureXDisplay& display = stats.CreatureDisplay.back();
+                display.CreatureDisplayID = modelId;
+            }
+        };
+
+        addModel(creatureInfo->Modelid1);
+        addModel(creatureInfo->Modelid2);
+        addModel(creatureInfo->Modelid3);
+        addModel(creatureInfo->Modelid4);
 
         stats.HpMulti = creatureInfo->ModHealth;
         stats.EnergyMulti = creatureInfo->ModMana;
@@ -107,14 +119,14 @@ void WorldSession::HandleCreatureQuery(WorldPackets::Query::QueryCreature& packe
         stats.RequiredExpansion = creatureInfo->RequiredExpansion;
         stats.HealthScalingExpansion = creatureInfo->HealthScalingExpansion;
         stats.VignetteID = creatureInfo->VignetteID;
+        stats.Class = creatureInfo->unit_class;
 
         stats.Title = creatureInfo->SubName;
         stats.TitleAlt = creatureInfo->TitleAlt;
         stats.CursorName = creatureInfo->IconName;
 
         if (std::vector<uint32> const* items = sObjectMgr->GetCreatureQuestItemList(packet.CreatureID))
-            for (uint32 item : *items)
-                stats.QuestItems.push_back(item);
+            stats.QuestItems.insert(stats.QuestItems.begin(), items->begin(), items->end());
 
         LocaleConstant localeConstant = GetSessionDbLocaleIndex();
         if (localeConstant != LOCALE_enUS)
